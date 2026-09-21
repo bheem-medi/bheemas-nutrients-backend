@@ -1,0 +1,53 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: bheemas-nutrients-s2i-pipeline
+spec:
+  params:
+    - name: git-url
+      type: string
+    - name: git-revision
+      type: string
+      default: main
+    - name: image-name
+      type: string
+    - name: builder-image
+      type: string
+      default: "registry.access.redhat.com/ubi8/dotnet-70:latest"
+  workspaces:
+    - name: shared-workspace
+    - name: git-credentials
+      optional: true
+    - name: dockerconfig
+      optional: true
+  tasks:
+    - name: clone-repo
+      taskRef:
+        name: git-clone
+      workspaces:
+        - name: output
+          workspace: shared-workspace
+        - name: basic-auth
+          workspace: git-credentials
+      params:
+        - name: url
+          value: $(params.git-url)
+        - name: revision
+          value: $(params.git-revision)
+    - name: s2i-build
+      runAfter:
+        - clone-repo
+      taskRef:
+        name: s2i-dotnet-build
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+        - name: dockerconfig
+          workspace: dockerconfig
+      params:
+        - name: PATH_CONTEXT
+          value: "."
+        - name: BUILDER_IMAGE
+          value: $(params.builder-image)
+        - name: OUTPUT_IMAGE
+          value: $(params.image-name)

@@ -1,0 +1,6 @@
+DOTNET_STARTUP_PROJECT=BheemasNutrients.API/BheemasNutrients.API.csproj
+DOTNET_ASSEMBLY_NAME=BheemasNutrients.API
+DOTNET_RESTORE_SOURCES=https://api.nuget.org/v3/index.json
+ASPNETCORE_URLS=http://+:8080
+ASPNETCORE_ENVIRONMENT=Production
+DOTNET_VERBOSITY=normal

@@ -1,0 +1,30 @@
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  generateName: bheemas-nutrients-s2i-run-
+spec:
+  pipelineRef:
+    name: bheemas-nutrients-s2i-pipeline
+  params:
+    - name: git-url
+      value: "https://github.com/YOUR_USERNAME/bheemas-nutrients-backend.git"
+    - name: git-revision
+      value: "main"
+    - name: image-name
+      value: "quay.io/YOUR_QUAY_USERNAME/bheemas-nutrients-api:latest"
+    - name: builder-image
+      value: "registry.access.redhat.com/ubi8/dotnet-70:latest"
+  workspaces:
+    - name: shared-workspace
+      volumeClaimTemplate:
+        spec:
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 1Gi
+    - name: git-credentials
+      secret:
+        secretName: git-credentials
+    - name: dockerconfig
+      secret:
+        secretName: registry-credentials

@@ -1,0 +1,38 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: s2i-dotnet-build
+spec:
+  description: Builds a .NET application using the Red Hat .NET S2I builder image and pushes the resulting image.
+  params:
+    - name: PATH_CONTEXT
+      type: string
+      default: "."
+    - name: BUILDER_IMAGE
+      type: string
+      default: "registry.access.redhat.com/ubi8/dotnet-70:latest"
+    - name: OUTPUT_IMAGE
+      type: string
+    - name: TLSVERIFY
+      type: string
+      default: "false"
+  workspaces:
+    - name: source
+    - name: dockerconfig
+      optional: true
+  steps:
+    - name: s2i-build-and-push
+      image: quay.io/openshift-pipeline/s2i:latest
+      workingDir: $(workspaces.source.path)
+      env:
+        - name: DOCKER_CONFIG
+          value: $(workspaces.dockerconfig.path)
+      script: |
+        #!/usr/bin/env bash
+        set -e
+        echo "==> Building image with S2I using $(params.BUILDER_IMAGE)"
+        s2i build "$(params.PATH_CONTEXT)" "$(params.BUILDER_IMAGE)" "$(params.OUTPUT_IMAGE)" --as-dockerfile /tmp/s2i-df
+        echo "==> S2I build complete. Pushing to registry..."
+        buildah bud --tls-verify=$(params.TLSVERIFY) --layers -f /tmp/s2i-df/Dockerfile -t "$(params.OUTPUT_IMAGE)" /tmp/s2i-df
+        buildah push --tls-verify=$(params.TLSVERIFY) "$(params.OUTPUT_IMAGE)"
+        echo "==> Image pushed: $(params.OUTPUT_IMAGE)"
