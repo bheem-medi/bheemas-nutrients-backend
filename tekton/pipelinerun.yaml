@@ -2,7 +2,7 @@ apiVersion: tekton.dev/v1
 kind: PipelineRun
 
 metadata:
-  generateName: git-run-
+  generateName: pipelinerun-
   namespace: cicd-poc
 
 spec:
