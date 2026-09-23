@@ -1,38 +1,138 @@
 apiVersion: tekton.dev/v1
 kind: Task
+
 metadata:
   name: s2i-dotnet-build
+  namespace: cicd-poc
+
 spec:
-  description: Builds a .NET application using the Red Hat .NET S2I builder image and pushes the resulting image.
   params:
-    - name: PATH_CONTEXT
+
+    - name: S2I_IMAGE
       type: string
-      default: "."
+      description: S2I image
+
     - name: BUILDER_IMAGE
       type: string
-      default: "registry.access.redhat.com/ubi8/dotnet-70:latest"
-    - name: OUTPUT_IMAGE
+      description: .NET S2I builder image
+
+    - name: BUILDAH_IMAGE
       type: string
-    - name: TLSVERIFY
+      description: Buildah image
+
+    - name: APPLICATION_IMAGE
       type: string
-      default: "false"
+      description: Final application image
+
+    - name: PROJECT_PATH
+      type: string
+      default: "."
+
   workspaces:
     - name: source
-    - name: dockerconfig
-      optional: true
+
   steps:
-    - name: s2i-build-and-push
-      image: quay.io/openshift-pipeline/s2i:latest
-      workingDir: $(workspaces.source.path)
-      env:
-        - name: DOCKER_CONFIG
-          value: $(workspaces.dockerconfig.path)
+
+    # ========================================
+    # STEP 1 - S2I
+    # ========================================
+    - name: s2i
+      image: $(params.S2I_IMAGE)
+      workingDir: $(workspaces.source.path)/source
+
       script: |
         #!/usr/bin/env bash
-        set -e
-        echo "==> Building image with S2I using $(params.BUILDER_IMAGE)"
-        s2i build "$(params.PATH_CONTEXT)" "$(params.BUILDER_IMAGE)" "$(params.OUTPUT_IMAGE)" --as-dockerfile /tmp/s2i-df
-        echo "==> S2I build complete. Pushing to registry..."
-        buildah bud --tls-verify=$(params.TLSVERIFY) --layers -f /tmp/s2i-df/Dockerfile -t "$(params.OUTPUT_IMAGE)" /tmp/s2i-df
-        buildah push --tls-verify=$(params.TLSVERIFY) "$(params.OUTPUT_IMAGE)"
-        echo "==> Image pushed: $(params.OUTPUT_IMAGE)"
+        set -euo pipefail
+
+        echo "========================================"
+        echo "Starting S2I"
+        echo "========================================"
+
+        echo "Working directory:"
+        pwd
+
+        echo "Source:"
+        ls -lah
+
+        echo "S2I image:"
+        echo "$(params.S2I_IMAGE)"
+
+        echo "Builder image:"
+        echo "$(params.BUILDER_IMAGE)"
+
+        echo "Running S2I assemble..."
+
+        s2i assemble \
+          "$(workspaces.source.path)/source" \
+          "$(params.BUILDER_IMAGE)"
+
+        echo "========================================"
+        echo "S2I assemble completed"
+        echo "========================================"
+
+    # ========================================
+    # STEP 2 - BUILDAH
+    # ========================================
+    - name: buildah
+      image: $(params.BUILDAH_IMAGE)
+      workingDir: $(workspaces.source.path)/source
+
+      env:
+        - name: BUILDAH_ISOLATION
+          value: chroot
+
+        - name: STORAGE_DRIVER
+          value: vfs
+
+        - name: BUILDAH_LAYERS
+          value: "false"
+
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+
+        echo "========================================"
+        echo "Starting Buildah"
+        echo "========================================"
+
+        echo "Working directory:"
+        pwd
+
+        echo "Application image:"
+        echo "$(params.APPLICATION_IMAGE)"
+
+        echo "Buildah version:"
+        buildah version
+
+        echo "Buildah storage:"
+        buildah info || true
+
+        echo "Source directory:"
+        ls -lah
+
+        echo "Checking for Containerfile/Dockerfile..."
+
+        if [ -f Containerfile ]; then
+          echo "Containerfile found"
+        elif [ -f Dockerfile ]; then
+          echo "Dockerfile found"
+        else
+          echo "ERROR: No Containerfile or Dockerfile found"
+          exit 1
+        fi
+
+        echo "Building application image..."
+
+        buildah bud \
+          --storage-driver=vfs \
+          --isolation=chroot \
+          --layers=false \
+          -t "$(params.APPLICATION_IMAGE)" \
+          .
+
+        echo "========================================"
+        echo "Application image build completed"
+        echo "========================================"
+
+        echo "Built images:"
+        buildah images
