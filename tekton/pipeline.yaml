@@ -1,53 +1,109 @@
 apiVersion: tekton.dev/v1
 kind: Pipeline
+
 metadata:
-  name: bheemas-nutrients-s2i-pipeline
+  name: dotnet-ci
+  namespace: cicd-poc
+
 spec:
   params:
-    - name: git-url
+
+    - name: GIT_URL
       type: string
-    - name: git-revision
+
+    - name: GIT_REVISION
       type: string
       default: main
-    - name: image-name
+
+    - name: DOTNET_IMAGE
       type: string
-    - name: builder-image
+
+    - name: S2I_IMAGE
       type: string
-      default: "registry.access.redhat.com/ubi8/dotnet-70:latest"
+
+    - name: S2I_BUILDER_IMAGE
+      type: string
+
+    - name: BUILDAH_IMAGE
+      type: string
+
+    - name: APPLICATION_IMAGE
+      type: string
+
+    - name: PROJECT_PATH
+      type: string
+      default: "."
+
   workspaces:
     - name: shared-workspace
-    - name: git-credentials
-      optional: true
-    - name: dockerconfig
-      optional: true
+
   tasks:
-    - name: clone-repo
+
+    # -------------------------
+    # 1. Clone
+    # -------------------------
+    - name: clone
       taskRef:
         name: git-clone
+
+      params:
+        - name: url
+          value: "$(params.GIT_URL)"
+
+        - name: revision
+          value: "$(params.GIT_REVISION)"
+
       workspaces:
         - name: output
           workspace: shared-workspace
-        - name: basic-auth
-          workspace: git-credentials
-      params:
-        - name: url
-          value: $(params.git-url)
-        - name: revision
-          value: $(params.git-revision)
-    - name: s2i-build
+
+    # -------------------------
+    # 2. .NET Build
+    # -------------------------
+    - name: build
       runAfter:
-        - clone-repo
+        - clone
+
       taskRef:
-        name: s2i-dotnet-build
+        name: dotnet-build
+
+      params:
+        - name: DOTNET_IMAGE
+          value: "$(params.DOTNET_IMAGE)"
+
+        - name: PROJECT_PATH
+          value: "$(params.PROJECT_PATH)"
+
       workspaces:
         - name: source
           workspace: shared-workspace
-        - name: dockerconfig
-          workspace: dockerconfig
+
+    # -------------------------
+    # 3. S2I + Buildah
+    # -------------------------
+    - name: s2i-build
+      runAfter:
+        - build
+
+      taskRef:
+        name: s2i-dotnet-build
+
       params:
-        - name: PATH_CONTEXT
-          value: "."
+        - name: S2I_IMAGE
+          value: "$(params.S2I_IMAGE)"
+
         - name: BUILDER_IMAGE
-          value: $(params.builder-image)
-        - name: OUTPUT_IMAGE
-          value: $(params.image-name)
+          value: "$(params.S2I_BUILDER_IMAGE)"
+
+        - name: BUILDAH_IMAGE
+          value: "$(params.BUILDAH_IMAGE)"
+
+        - name: APPLICATION_IMAGE
+          value: "$(params.APPLICATION_IMAGE)"
+
+        - name: PROJECT_PATH
+          value: "$(params.PROJECT_PATH)"
+
+      workspaces:
+        - name: source
+          workspace: shared-workspace
