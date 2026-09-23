@@ -1,0 +1,109 @@
+apiVersion: tekton.dev/v1
+kind: Task
+
+metadata:
+  name: dotnet-build
+  namespace: cicd-poc
+
+spec:
+  params:
+    - name: DOTNET_IMAGE
+      type: string
+      description: .NET SDK image
+
+    - name: PROJECT_PATH
+      type: string
+      default: "."
+
+    - name: CONFIGURATION
+      type: string
+      default: Release
+
+  workspaces:
+    - name: source
+
+  steps:
+
+    # ==============================
+    # STEP 1 - NUGET RESTORE
+    # ==============================
+    - name: restore
+      image: $(params.DOTNET_IMAGE)
+
+      workingDir: $(workspaces.source.path)/source
+
+      env:
+        - name: NUGET_PACKAGES
+          value: "$(workspaces.source.path)/.nuget/packages"
+
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+
+        echo "========================================"
+        echo "Starting .NET restore"
+        echo "========================================"
+
+        echo "Working directory:"
+        pwd
+
+        echo "Source directory:"
+        ls -lah
+
+        echo "NuGet package cache:"
+        echo "${NUGET_PACKAGES}"
+
+        mkdir -p "${NUGET_PACKAGES}"
+
+        echo "Restoring NuGet packages from internet..."
+
+        dotnet restore "$(params.PROJECT_PATH)" \
+          --source "https://api.nuget.org/v3/index.json"
+
+        echo "Checking restored packages..."
+
+        ls -lah "${NUGET_PACKAGES}" || true
+
+        echo "========================================"
+        echo "NuGet restore completed successfully"
+        echo "========================================"
+
+    # ==============================
+    # STEP 2 - BUILD
+    # ==============================
+    - name: build
+      image: $(params.DOTNET_IMAGE)
+
+      workingDir: $(workspaces.source.path)/source
+
+      env:
+        - name: NUGET_PACKAGES
+          value: "$(workspaces.source.path)/.nuget/packages"
+
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+
+        echo "========================================"
+        echo "Starting .NET build"
+        echo "========================================"
+
+        echo "Working directory:"
+        pwd
+
+        echo "NuGet package cache:"
+        echo "${NUGET_PACKAGES}"
+
+        echo "Checking NuGet cache..."
+
+        ls -lah "${NUGET_PACKAGES}" || true
+
+        echo "Building application..."
+
+        dotnet build "$(params.PROJECT_PATH)" \
+          --configuration "$(params.CONFIGURATION)" \
+          --no-restore
+
+        echo "========================================"
+        echo ".NET build completed successfully"
+        echo "========================================"
