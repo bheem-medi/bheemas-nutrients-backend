@@ -1,30 +1,43 @@
 apiVersion: tekton.dev/v1
 kind: PipelineRun
+
 metadata:
-  generateName: bheemas-nutrients-s2i-run-
+  generateName: git-run-
+  namespace: cicd-poc
+
 spec:
+  serviceAccountName: poc-pipeline
+
   pipelineRef:
-    name: bheemas-nutrients-s2i-pipeline
+    name: dotnet-ci
+
   params:
-    - name: git-url
-      value: "https://github.com/YOUR_USERNAME/bheemas-nutrients-backend.git"
-    - name: git-revision
+
+    - name: GIT_URL
+      value: "https://github.com/bheem-medi/bheemas-nutrients-backend.git"
+
+    - name: GIT_REVISION
       value: "main"
-    - name: image-name
-      value: "quay.io/YOUR_QUAY_USERNAME/bheemas-nutrients-api:latest"
-    - name: builder-image
-      value: "registry.access.redhat.com/ubi8/dotnet-70:latest"
+
+    - name: DOTNET_IMAGE
+      value: "quay.io/tekton_cicd/custom.dotnet-sdk-image:dotnet-70"
+
+    - name: S2I_IMAGE
+      value: "registry.redhat.io/source-to-image/source-to-image-rhel9:1.6.0"
+
+    - name: S2I_BUILDER_IMAGE
+      value: "quay.io/tekton_cicd/custom.dotnet-sdk-image:dotnet-70"
+
+    - name: BUILDAH_IMAGE
+      value: "registry.redhat.io/ubi9/buildah:latest"
+
+    - name: APPLICATION_IMAGE
+      value: "quay.io/tekton_cicd/bheemas-nutrients-backend:latest"
+
+    - name: PROJECT_PATH
+      value: "."
+
   workspaces:
     - name: shared-workspace
-      volumeClaimTemplate:
-        spec:
-          accessModes: [ReadWriteOnce]
-          resources:
-            requests:
-              storage: 1Gi
-    - name: git-credentials
-      secret:
-        secretName: git-credentials
-    - name: dockerconfig
-      secret:
-        secretName: registry-credentials
+      persistentVolumeClaim:
+        claimName: cicd-workspace
