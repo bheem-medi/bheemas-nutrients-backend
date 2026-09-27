@@ -6,7 +6,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>BheemasNutrients.API</RootNamespace>
     <AssemblyName>BheemasNutrients.API</AssemblyName>
-    <EnableSdkContainerSupport>true</EnableSdkContainerSupport>
   </PropertyGroup>
 
   <ItemGroup>
@@ -22,6 +21,9 @@
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
     <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="7.0.3" />
+
+    <!-- ⬇️ REQUIRED for SDK 7.0.119 — no EnableSdkContainerSupport property -->
+    <PackageReference Include="Microsoft.NET.Build.Containers" Version="7.0.307" />
   </ItemGroup>
 
 </Project>
